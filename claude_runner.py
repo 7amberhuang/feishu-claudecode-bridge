@@ -2,6 +2,7 @@
 通过 subprocess 调用本机 claude CLI，解析 stream-json 输出。
 复用 ~/.claude/ 中已有的 Max 订阅登录凭证，无需额外 API Key。
 """
+from __future__ import annotations
 
 import asyncio
 import json
@@ -11,6 +12,46 @@ from typing import Callable, Optional
 from bot_config import PERMISSION_MODE, CLAUDE_CLI
 
 IDLE_TIMEOUT = 900  # 15 分钟无任何输出视为挂死
+
+# Model fallback chain: when rate-limited, try the next model
+MODEL_FALLBACK_CHAIN = [
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5-20251001",
+]
+
+_RATE_LIMIT_KEYWORDS = [
+    "rate limit",
+    "rate_limit",
+    "overloaded",
+    "429",
+    "too many requests",
+    "capacity",
+    "usage limit",
+    "limit exceeded",
+]
+
+
+def _is_rate_limited(stderr_text: str, full_text: str) -> bool:
+    """Check if the error indicates a rate limit hit."""
+    combined = (stderr_text + " " + full_text).lower()
+    return any(kw in combined for kw in _RATE_LIMIT_KEYWORDS)
+
+
+def _next_fallback_model(current_model: str) -> str | None:
+    """Return the next model in the fallback chain, or None if exhausted."""
+    # Normalize: match by substring (e.g. "opus" matches "claude-opus-4-6")
+    current_idx = -1
+    for i, m in enumerate(MODEL_FALLBACK_CHAIN):
+        if current_model and (current_model in m or m in current_model):
+            current_idx = i
+            break
+    if current_idx == -1:
+        # Unknown model — try sonnet as first fallback
+        return MODEL_FALLBACK_CHAIN[1]
+    if current_idx + 1 < len(MODEL_FALLBACK_CHAIN):
+        return MODEL_FALLBACK_CHAIN[current_idx + 1]
+    return None  # exhausted
 
 
 def _extract_text_content(value) -> str:
@@ -52,7 +93,8 @@ async def run_claude(
         (full_response_text, new_session_id, used_fresh_session_fallback)
     """
 
-    async def _run_once(active_session_id: Optional[str]) -> tuple[str, Optional[str], int, str]:
+    async def _run_once(active_session_id: Optional[str], use_model: Optional[str] = None) -> tuple[str, Optional[str], int, str]:
+        effective_model = use_model or model
         cmd = [
             CLAUDE_CLI,
             "--print",
@@ -64,8 +106,8 @@ async def run_claude(
         ]
         if active_session_id:
             cmd += ["--resume", active_session_id]
-        if model:
-            cmd += ["--model", model]
+        if effective_model:
+            cmd += ["--model", effective_model]
 
         env = os.environ.copy()
         env.pop("CLAUDECODE", None)
@@ -182,6 +224,24 @@ async def run_claude(
         print("[run_claude] resume failed without stderr, retrying with fresh session", flush=True)
         final_text, new_session_id, returncode, stderr_text = await _run_once(None)
         used_fresh_session_fallback = True
+
+    # ── Auto model fallback on rate limit ─────────────────────
+    if returncode != 0 and _is_rate_limited(stderr_text, final_text):
+        current = model or "claude-sonnet-4-6"
+        fallback = _next_fallback_model(current)
+        while fallback:
+            print(f"[run_claude] ⚠️ rate-limited on {current}, falling back to {fallback}", flush=True)
+            await _fire_callback(on_text_chunk, f"\n⚠️ {current} 达到限额，自动切换到 {fallback}\n")
+            final_text, new_session_id, returncode, stderr_text = await _run_once(None, use_model=fallback)
+            if returncode == 0 or not _is_rate_limited(stderr_text, final_text):
+                print(f"[run_claude] ✅ fallback to {fallback} succeeded", flush=True)
+                break
+            current = fallback
+            fallback = _next_fallback_model(current)
+        else:
+            if returncode != 0 and _is_rate_limited(stderr_text, final_text):
+                print("[run_claude] ❌ all models rate-limited", flush=True)
+                await _fire_callback(on_text_chunk, "\n❌ 所有模型均已达到限额，请稍后再试\n")
 
     if returncode != 0:
         detail = stderr_text or "no stderr"

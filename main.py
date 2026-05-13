@@ -1273,7 +1273,8 @@ async def run_lark_cli_loop():
     """
     lark_cli = "/usr/local/bin/lark-cli"
     if not os.path.exists(lark_cli):
-        lark_cli = shutil.which("lark-cli") or "lark-cli"
+        lark_cli = shutil.which("lark-cli") or \
+            "/Users/amber/.local/share/fnm/node-versions/v24.15.0/installation/bin/lark-cli"
     cmd = [
         lark_cli, "event", "+subscribe",
         "--as", "bot",

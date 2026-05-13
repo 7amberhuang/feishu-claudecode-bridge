@@ -7,20 +7,20 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/python3</string>
+        <string>/Users/amber/Developer/feishu-claudecode-bridge/.venv/bin/python3</string>
         <string>-u</string>
-        <string>/Users/bytedance/Documents/Claude code projects/feishu-claude-code/main.py</string>
+        <string>/Users/amber/Developer/feishu-claudecode-bridge/main.py</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/bytedance/Documents/Claude code projects/feishu-claude-code</string>
+    <string>/Users/amber/Developer/feishu-claudecode-bridge</string>
 
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/Users/bytedance/.npm-global/bin:/Users/bytedance/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+        <string>/Users/amber/.local/share/fnm/node-versions/v24.15.0/installation/bin:/Users/amber/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin</string>
         <key>HOME</key>
-        <string>/Users/bytedance</string>
+        <string>/Users/amber</string>
         <key>PYTHONUNBUFFERED</key>
         <string>1</string>
     </dict>
@@ -35,8 +35,8 @@
     <integer>10</integer>
 
     <key>StandardOutPath</key>
-    <string>/Users/bytedance/Documents/Claude code projects/feishu-claude-code/stdout.log</string>
+    <string>/Users/amber/Developer/feishu-claudecode-bridge/stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/bytedance/Documents/Claude code projects/feishu-claude-code/stderr.log</string>
+    <string>/Users/amber/Developer/feishu-claudecode-bridge/stderr.log</string>
 </dict>
 </plist>

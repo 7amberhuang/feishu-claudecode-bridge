@@ -2,6 +2,7 @@
 斜杠命令解析与处理。
 返回要发送给用户的回复文本。
 """
+from __future__ import annotations
 
 import asyncio
 import getpass
